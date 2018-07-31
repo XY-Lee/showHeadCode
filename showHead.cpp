@@ -15,37 +15,40 @@ int min_face_width = 50;
 # define HEAD_SHOW_WIDTH 100
 
 # define ANI_HEAD_MAX 29
+
+// 所有動物頭的檔案名稱
 const string gHeadName[29] = { "01.png", "02.png", "03.png", "04.png", "05.png", "06.png",
   "07.png", "08.png", "09.png", "10.png", "11.png", "12.png",
   "13.png", "14.png", "15.png", "16.png", "17.png", "18.png",
   "19.png", "20.png", "21.png", "22.png", "23.png", "24.png",
   "25.png", "26.png", "27.png", "28.png", "29.png" } ;
 
+// 自定義的資料結構
 class Img {
 public :
-  string name ;
-  string path ;
-  Mat img ;
+  string name ; // 圖片檔名
+  string path ; // 圖片路徑
+  Mat img ; // opencv 資料結構
 
   Img() {} // Img() 
 
-  Img( string n ) {
+  Img( string n ) { // 傳入單個檔案名稱 讀取目前資料夾的那個檔案
     name = n ;
     path = "./" ;
     img = imread( path + n, CV_LOAD_IMAGE_UNCHANGED);
   } // Img()
 
-  Img( string n, string inPath ) {
+  Img( string n, string inPath ) {  // 傳入單個檔案名稱與路徑 讀取路徑中的那個檔案
     name = n ;
     path = inPath ;
     img = imread( inPath + n, CV_LOAD_IMAGE_UNCHANGED);
   } // Img()
 } ;
 
-Img gAniHead[29] ;
+Img gAniHead[29] ; // 存放所有動物圖片
 
-int cvAdd4cMat_q( Mat &dst, Mat &scr, double scale) {   
-  if (dst.channels() != 3 || scr.channels() != 4) {    
+int cvAdd4cMat_q( Mat &dst, Mat &scr, double scale) {   // 將 圖dst 與 scr 以 透明度 scale 作融合
+  if (dst.channels() != 3 || scr.channels() != 4) {   // 檢查兩張圖的資料大小是否一致
     return false;    
   } // if 
   if (scale < 0.01)    
@@ -70,7 +73,7 @@ int cvAdd4cMat_q( Mat &dst, Mat &scr, double scale) {
   return true;    
 } // cvAdd4cMat_q()
 
-void ShowAnimalHead() {
+void ShowAnimalHead() { // 將 所有的 gAniHead 融合在一個視窗 隨後 show 出
   Scalar color = Scalar(255,255,255,255);
   Scalar fontColor = Scalar(0,0,255);
   Mat backMat( HEAD_SHOW_WIDTH * 6, HEAD_SHOW_HEIGHT * 5, CV_8UC4, color ) ;
@@ -80,13 +83,11 @@ void ShowAnimalHead() {
     for ( int j = 0 ; j < 5 && j + 5 * i < ANI_HEAD_MAX ; j++ ) {
       resize( gAniHead[j + 5 * i].img, resizeImg, Size( HEAD_SHOW_WIDTH, HEAD_SHOW_HEIGHT ) ) ;
       temp = backMat( Rect( j * HEAD_SHOW_WIDTH , i * HEAD_SHOW_HEIGHT, resizeImg.cols, resizeImg.rows ) );  //指定插入的大小和位置
-      /*
-      Mat mask ;
-      resizeImg.convertTo( mask, 0 ) ;
-      resizeImg.copyTo( temp ) ;
-      */
-      if ( !cvAdd4cMat_q( temp, resizeImg, 1.0 ) )
-      addWeighted( temp, 0, resizeImg, 1.0, 0, temp );
+
+      if ( !cvAdd4cMat_q( temp, resizeImg, 1.0 ) ) // 先試試看此方法有沒有成功將圖融合
+        addWeighted( temp, 0, resizeImg, 1.0, 0, temp ); // 如果沒有成功 就換成 openCV 的內建 function
+      
+      // 以下是將圖片寫上文字
       stringstream temp ;
       temp << j + 5 * i ;
       string w ;
@@ -97,16 +98,17 @@ void ShowAnimalHead() {
     } // for
   } // for
 
-  namedWindow("Animal Head", 1);
-  imshow("Animal Head", backMat ) ;
+  namedWindow("Animal Head", 1); // 創造一個視窗 命名為 Animal Head
+  imshow("Animal Head", backMat ) ; // 將剛剛融合成一張的動物圖 放到此視窗上
 } // ShowAnimalHead()
 
-void ShowDetectFace( Img mainImg, CvSeq *&faces ) {
+void ShowDetectFace( Img mainImg, CvSeq *&faces ) { // 將偵測照片的頭用紅框框起來並show在螢幕上
   // Load image
   IplImage *image_detect = new IplImage( mainImg.img );
-  string cascade_name = "/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ;
+  string cascade_name = "/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ; // opencv 對於臉的分類的資料集
   // Load cascade
-  CvHaarClassifierCascade* classifier=(CvHaarClassifierCascade*)cvLoad(cascade_name.c_str(), 0, 0, 0);
+  // 用 haar分類器 這個方法來做人臉偵測 
+  CvHaarClassifierCascade* classifier=(CvHaarClassifierCascade*)cvLoad(cascade_name.c_str(), 0, 0, 0); 
   if ( !classifier ) {
     cerr<<"ERROR: Could not load classifier cascade."<<endl;
     return ;
@@ -122,16 +124,19 @@ void ShowDetectFace( Img mainImg, CvSeq *&faces ) {
   } // else
 
   cvClearMemStorage(facesMemStorage);
+  
+  // 將辨識出來的臉 放在 faces 中
   faces = cvHaarDetectObjects( tempFrame, classifier, facesMemStorage, 1.1, 3, 
     CV_HAAR_DO_CANNY_PRUNING, cvSize(min_face_width, min_face_height ) );
 
-  namedWindow("Face Detection Result", 1);
+  namedWindow("Face Detection Result", 1); // 建立一個視窗 命名為 Face Detection Result
   CvFont font;
   double hScale = 1.0;
   double vScale = 1.0;
   int    lineWidth = 2;
   cvInitFont( &font, CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, hScale, vScale, 0, lineWidth );
 
+  // 將所有的 face 以紅線框起來
   if ( faces ) {
     for ( int i = 0 ; i < faces->total ; ++i ) {
       // Setup two points that define the extremes of the rectangle,
@@ -152,10 +157,12 @@ void ShowDetectFace( Img mainImg, CvSeq *&faces ) {
     } // for
   } // if
 
-  imshow("Face Detection Result", Mat( tempFrame ) ) ; // tempFrame);
+  imshow("Face Detection Result", Mat( tempFrame ) ) ; // 將 tempFrame show 在視窗中
 } // ShowDetectFace()
 
-bool ChangeFace( CvSeq *faces, Img &mainImg, int faceNum, int headIndex ) {
+bool ChangeFace( CvSeq *faces, Img &mainImg, int faceNum, int headIndex ) { 
+  // 將使用者所輸入的 faceNum 與 headIndex 
+  // 對應到哪一張臉 與 哪一個動物 進行 把 動物圖 放到 臉上 的動作
   if ( !faces ) {
     cout << "error : no face" << endl ;
     return false ;
@@ -172,44 +179,48 @@ bool ChangeFace( CvSeq *faces, Img &mainImg, int faceNum, int headIndex ) {
   } // if
 
   CvPoint point1;
-  CvRect* rectangle = (CvRect*)cvGetSeqElem( faces, faceNum );
-  point1.x = rectangle->x;  // *** x y
+  CvRect* rectangle = (CvRect*)cvGetSeqElem( faces, faceNum ); // 取得使用者要的是哪一張臉
+  // 將 臉的座標 抓出來
+  point1.x = rectangle->x;
   point1.y = rectangle->y;
   Mat reScaleTemp;
   Mat imgROI ;
-  resize( gAniHead[ headIndex ].img, reScaleTemp, Size( rectangle->width, rectangle->height ) ) ; // *** w h
+  // 將 動物圖 以 臉的框框 來重新縮放寬高
+  resize( gAniHead[ headIndex ].img, reScaleTemp, Size( rectangle->width, rectangle->height ) ) ; 
   imgROI = mainImg.img( Rect( point1.x, point1.y, reScaleTemp.cols, reScaleTemp.rows ) );
 
-  if ( !cvAdd4cMat_q( imgROI, reScaleTemp, 1.0 ) )
+  if ( !cvAdd4cMat_q( imgROI, reScaleTemp, 1.0 ) ) // 將 動物圖 與原圖融合
     addWeighted(imgROI, 0, reScaleTemp, 1.0, 0, imgROI );
-  imshow("Change Face", mainImg.img ) ; // ***  mainImg.img
+  
+  imshow("Change Face", mainImg.img ) ; // 將融合好的圖放到視窗中
 
 } // ChangeFace()
 
 int main( int argc , char ** argv ){
 
   /* init head */
+  /* 載入所有動物圖 */
   for ( int i = 0 ; i < ANI_HEAD_MAX ; i++ ) {
     gAniHead[i] = Img( gHeadName[i], "./animalHead/" ) ;
   } // for
 
-  ShowAnimalHead() ;
+  ShowAnimalHead() ; // 將載入好的動物圖 show 在視窗上
 
-  Img mainImg( "XD2.jpg" ) ;
+  Img mainImg( "XD2.jpg" ) ; // 載入你想偵測的臉
   CvSeq *faces = NULL ;
-  ShowDetectFace( mainImg, faces ) ;
+  ShowDetectFace( mainImg, faces ) ; // 將臉偵測完畢 畫框show在視窗上
 
-  namedWindow("Change Face", 1);
+  namedWindow("Change Face", 1); // 開啟一個視窗 名叫 "Change Face"
 
   string faceNum = "init" ;
   int head = 0 ;
 
   while ( faceNum.at( 0 ) != '-' ) {
-    cvWaitKey( 5000 ) ;
-    cin >> faceNum >> head ;
+    cvWaitKey( 5000 ) ; // 等候 5 秒 讓所有視窗繪圖完成
+    cin >> faceNum >> head ; // 讀取使用者輸入 臉的編號:字母  動物圖的編號:數字
     if ( faceNum.at( 0 ) == '-' )
       break ;
-    ChangeFace( faces, mainImg, faceNum.at( 0 ) - 'A', head ) ;
+    ChangeFace( faces, mainImg, faceNum.at( 0 ) - 'A', head ) ; // 將使用者輸入之字母換成數字 傳入將動物圖放到臉上
   } // while
 
   cout << "press ctrl + c or click photo and press any key to quit" << endl ; 
